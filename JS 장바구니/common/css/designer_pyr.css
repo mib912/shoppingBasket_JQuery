@@ -1,0 +1,13 @@
+@charset "utf-8";
+
+/* card_sale (designer PYR 20130808) */
+
+.card_price_down{ position:relative; width:56px; z-index:10;}
+
+.card_price_down .card_price_down_text{ position:absolute; top:22px; font:bold 14px verdana; letter-spacing:-1px; width:56px; text-align:center;}
+
+.card_price_down_text span, .card_price_down_text span{ font:normal 11px dotum;z-index:20;}
+
+.card_price_down .card_price_down_pW{ color:#fff;}
+
+.card_price_down .card_price_down_pB{ color:#0c6eb7;}

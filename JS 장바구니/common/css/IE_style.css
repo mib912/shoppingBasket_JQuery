@@ -1,0 +1,44 @@
+@charset "utf-8";
+
+/* PIONNET Web Standardization Team (//www.pionnet.co.kr/) PSH 20130401 */
+
+/* PNG */
+*html .png24{tmp:expression(setPng24(this));}
+
+/* IE7 */
+*+html body .goods_info .g_info .csel a{height:17px;padding-top:1px;}
+*+html body .goods_info .g_opt .csel a{height:17px;padding-top:1px;}
+*+html body .goods_info .g_opt .tsel a{height:17px;padding-top:1px;}
+*+html body .goods_opt .g_opt .csel a{height:17px;padding-top:1px;}
+*+html body .goods_opt .g_opt .tsel a{height:17px;padding-top:1px;}
+
+*+html body .catg_list{width:955px;}
+*+html body .catg_list .c_goods{width:955px;}
+*+html body .catg_thd li{width:238px;}
+
+*+html body .goods_view{position:static;}
+*+html body .bn_spot{top:40px;}
+*+html body .goods_tit{position:static;}
+*+html body .goods_info .calendar{bottom:-130px;}
+.goods_info .calendar{bottom:-135px\9;} /* IE8 */
+
+*+html body .ord_basket .scroll ul{min-height:100%;}
+
+*+html body .select.w50{width:45px !important;}
+*+html body table{table-layout:auto !important;}
+*+html body .evt_bbs .bbs_list td .cont{width:auto !important;}
+
+*+html body .mp_lp_ul.type2 li{margin-left:22px;}
+*+html body .mp_lp_ul.type3 li{margin-left:0px;}
+*+html body #login_wrap .container .lo_box .inner_lo .lo_input div input{margin-bottom:5px;}
+*+html body .aw_area{position:relative;} 
+*+html body .mp_re{position:absolute;left:10px;top:10px;}
+
+*+html body .plan_products ul{zoom:1;}
+*+html body .plan_products ul.pro_type1 li .pro_img{width:320px;}
+*+html body .fs_area .fs_inner .fs_pro .p_txt .p_txt_cont li{zoom:1;}
+
+*+html body .header .head .head_sch .sch .input{padding-top:5px;height:20px;}
+
+*+html body .login_container .lo_box .inner_lo .lo_input div input{padding-bottom:8px;}
+*+html body .cst_cont .cs_tbl .tbl td.cont .clause{width:676px;overflow-x:hidden;overflow-y:auto;}

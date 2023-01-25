@@ -1,0 +1,1208 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ko" xml:lang="ko">
+  <head>
+    <title>WELSTORY</title>
+    <meta http-equiv="content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=9" />
+
+    <link rel="stylesheet" href="../common/css/ws.css" type="text/css" />
+    <!--[if IE
+      ]><link
+        rel="stylesheet"
+        type="text/css"
+        href="../common/css/IE_style.css"
+    /><![endif]-->
+    <script src="http://code.jquery.com/jquery-latest.js"></script>
+    <script type="text/javascript">
+      //<![CDATA[
+
+      // 가격 , 단위 찍는 함수 420280 => 420,280
+      function toCurrency(amount) {
+        amount = String(amount);
+        var data = amount.split(".");
+        var sign = "";
+        var firstChar = data[0].substr(0, 1);
+        if (firstChar == "-") {
+          sign = firstChar;
+          data[0] = data[0].substring(1, data[0].length);
+        }
+        data[0] = data[0].replace(/\D/g, "");
+        if (data.length > 1) {
+          data[1] = data[1].replace(/\D/g, "");
+        }
+        firstChar = data[0].substr(0, 1);
+        //0으로 시작하는 숫자들 처리
+        if (firstChar == "0") {
+          if (data.length == 1) {
+            return sign + parseFloat(data[0]);
+          }
+        }
+        var comma = new RegExp("([0-9])([0-9][0-9][0-9][,.])");
+        data[0] += ".";
+        do {
+          data[0] = data[0].replace(comma, "$1,$2");
+        } while (comma.test(data[0]));
+
+        if (data.length > 1) {
+          return sign + data.join("");
+        } else {
+          return sign + data[0].split(".")[0];
+        }
+      }
+
+      /***
+      	이부분 부터 소스 구현.
+      **/
+
+      // $.ajax({
+      // 	url: 'https://api.plos.org/search?q-nature',
+      // })
+      // .done(function(data) {
+      // 	if (!data) {
+      // 		return;
+      // 	}
+      // 	// 실행
+      // }).fail(function(f) {
+
+      // });
+
+      var testData = [
+        {
+          goodsImg: "../images/goods/img_50.jpg",
+          goodsNo: "1000000000",
+          goodsNm:
+            "[BeanPole] 빈폴 BE4AA11235 5종 택 1 [정상가175,150원(정품)이효리가방 (남/여 공용)]",
+          qty: 1,
+          price: 175150,
+          deliverAmt: 3000,
+          soldOut: "Y",
+          item: [
+            {
+              itemNo: "2000000000",
+              itemNm: "색상:검정",
+              itemQty: "1",
+            },
+          ],
+        },
+        {
+          goodsImg: "../images/goods/img_50.jpg",
+          goodsNo: "1000000001",
+          goodsNm: "[타임워커/트레보스]스크래치 특가상품 모음전",
+          qty: 3,
+          price: 860000,
+          deliverAmt: 0,
+          soldOut: "N",
+          item: [
+            {
+              itemNo: "2000000001",
+              itemNm: "색상:레드브라운",
+              itemQty: "1",
+            },
+          ],
+        },
+        {
+          goodsImg: "../images/goods/img_50.jpg",
+          goodsNo: "1000000002",
+          goodsNm:
+            "[cK] 켈빈클라인 CK1145SK 명품 선글라스 5종 택 1 [정상가358,000원(정품)이효리선글라스 (남/여 공용)]",
+          qty: 1,
+          price: 358000,
+          deliverAmt: 3000,
+          soldOut: "N",
+          item: [
+            {
+              itemNo: "2000000002",
+              itemNm: "색상:CK1145SK 109",
+              itemQty: "1",
+            },
+          ],
+        },
+      ];
+
+      // testData가 비어있는지 확인
+      const isEmpty = function (list) {
+        return list == null || (list != null && list.length == 0);
+      };
+
+      // 수량에 따른 총가격 계산
+      const calculatePriceAtQty = function (cartItem) {
+        return cartItem.qty * cartItem.price;
+      };
+
+      // 처음 주문금액 계산
+      const initTotalPrice = (cartItem) => {
+        let sum = 0;
+        let len = cartItem.length;
+
+        for (let i = 0; i < len; i++) {
+          if (!($($(".g_dvr")[i]).text() === "품절")) {
+            sum += calculatePriceAtQty(cartItem[i]);
+          }
+        }
+        return sum;
+      };
+
+      // 처음 배송비 합계
+      const initTotalDel = (cartItem) => {
+        let sum = 0;
+        let len = cartItem.length;
+
+        for (let i = 0; i < len; i++) {
+          if (!($($(".g_dvr")[i]).text() === "품절")) {
+            sum += cartItem[i].deliverAmt;
+          }
+        }
+        return sum;
+      };
+
+      //장바구니 항목이 없을 때
+      const getNoneCartItem = function () {
+        const html = `
+      		<tr>
+      			<td class="g_pic" colspan="7">장바구니 항목이 없습니다.</td>
+      		</tr>
+      	`;
+
+        return html;
+      };
+
+      // 장바구니 항목이 있을 때
+      const getCartItem = function (cartItem) {
+        const soldOutHTML =
+          "Y" === cartItem.soldOut
+            ? '<img src="../images/goods/img_soldout.png" width="50" height="50" class="out"  alt="품절"/>'
+            : "";
+
+        const html = `
+      		<tr class="goodsList">
+      			<td class="g_pic">
+      				<input type="checkbox" name="choice_prd" class="checkbox" title="상품 선택" />
+      				<a href="#">
+      					<img src="${cartItem.goodsImg}" width="50" height="50"  alt="상품"  />
+      					${soldOutHTML}
+      				</a>
+      			</td>
+      			<td class="g_info">
+      				<p class="pname">
+      					<a href="#">${cartItem.goodsNm}</a>
+      				</p>
+      				<ul class="opt">
+      					<li>[선택] 색상:검정 (1개) <a href="#" ><img src="../images/order/btn_chg_option.gif" width="71" height="18" alt="선택사항수정" /></a></li>
+      				</ul>
+      				<p class="pprc">${toCurrency(cartItem.price)}원</p>
+      			</td>
+      			<td class="g_info">
+      				<p class="icons">
+      					<span class="sale"><img src="../images/common/ico_sale2.gif" width="26" height="11" alt="할인" /></span>
+      				</p>
+      			</td>
+      			<td class="g_qty">
+      				<p class="qty">
+      					<input type="text" name="qty" id="cnt" value="${
+                  cartItem.qty
+                }" class="input" title="상품수량입력" onlyNumber/>
+      					<input type="hidden" name="amt" value="${
+                  cartItem.price
+                }" class="input" title="상품 가격" />
+      					<input type="hidden" name="deliver_amt" value="${
+                  cartItem.deliverAmt
+                }" class="input" title="배송비" />
+      					<input type="hidden" name="goods_code" value="${
+                  cartItem.goodsNo
+                }" class="input" title="상품코드" />
+      					<input type="hidden" name="item_no" value="${
+                  cartItem.item[0].itemNo
+                }" class="input" title="단품 코드" />
+                <input type="hidden" name="soldOut" value="${
+                  cartItem.soldOut
+                }" class="input" title="품절 여부" />
+      					<a href="javascript:;" onkeypress="this.onclick;" class="plus"><img src="../images/goods/btn_cnt_up.gif" width="15" height="9" alt="수량증가" /></a>
+      					<a href="javascript:;" onkeypress="this.onclick;" class="minus"><img src="../images/goods/btn_cnt_down.gif" width="15" height="9" alt="수량감소" /></a>
+      					<a href="javascript:;" class="modi"><img src="../images/order/btn_cnt_mod.gif" width="46" height="18" alt="변경" /></a>
+      				</p>
+      			</td>
+      			<td class="g_prc"><span>${toCurrency(
+              calculatePriceAtQty(cartItem)
+            )}원</span></td>
+      			<td class="g_dvr">${toCurrency(cartItem.deliverAmt)}원</td>
+      			<td class="g_ord">
+      				<a href="javascript:;" ><img src="../images/order/btn_order_s.gif" class="ord" width="51" height="20" alt="주문하기" /></a>
+      				<a href="javascript:;" class="del">삭제하기</a>
+      			</td>
+      		</tr>
+      		`;
+
+        return html;
+      };
+
+      const getTfoot = (cartItem) => {
+        const html = `                
+                <tr>
+                  <td colspan="7" class="c_tot">
+                    <span class="sum"
+                      ><em>주문금액 :</em><strong id="ord_amt">${toCurrency(
+                        initTotalPrice(cartItem)
+                      )}</strong>원</span
+                    >
+                    +
+                    <span class="sum"
+                      ><em>배송비합계 :</em
+                      ><strong id="deliver_total_amt">${toCurrency(
+                        initTotalDel(cartItem)
+                      )}</strong>원</span
+                    >
+                    =
+                    <span class="tot"
+                      ><em>총 예상 결제금액</em
+                      ><strong id="total_amt">${toCurrency(
+                        initTotalPrice(cartItem) + initTotalDel(cartItem)
+                      )}</strong>원</span
+                    >
+                  </td>
+                </tr>`;
+        return html;
+      };
+
+      // 총합 문자 > 숫자
+      const charToNum = (text) => {
+        let len = text.length;
+        text = text.substr(0, len - 1);
+        text = text.replace(/\,/g, "");
+        return text;
+      };
+
+      // 총합 값(tfoot) 나타내기
+      const initTotal = () => {
+        let sumPrice = 0; //주문금액
+        let sumDel = 0; //배송비
+        let length = $(".g_prc").length;
+
+        for (let i = 0; i < length; i++) {
+          sumPrice += Number(charToNum($($(".g_prc")[i]).text()));
+          if ($($(".g_dvr")[i]).text() === "품절") {
+            sumDel += 0;
+            continue;
+          }
+          sumDel += Number(charToNum($($(".g_dvr")[i]).text()));
+        }
+        return [sumPrice, sumDel];
+      };
+
+      // 총 금액 나타내기 (변경 버튼 눌렀을 때)
+      const initTfoot = (totalPrice, totalDel) => {
+        const cartListTfoot = $("#cartListInfo");
+
+        cartListTfoot.find("strong[id=ord_amt]").text(toCurrency(totalPrice));
+        cartListTfoot
+          .find("strong[id=deliver_total_amt]")
+          .text(toCurrency(totalDel));
+        cartListTfoot
+          .find("strong[id=total_amt]")
+          .text(toCurrency(totalPrice + totalDel));
+      };
+
+      var searchCartList = function (cartList) {
+        const cartListTbody = $("#cartList");
+        const cartListTFoot = $("#cartListInfo");
+
+        if (isEmpty(cartList)) {
+          cartListTbody.html(getNoneCartItem());
+          return;
+        }
+
+        const length = cartList.length;
+
+        cartListTbody.html("");
+
+        for (let index = 0; index < length; index++) {
+          const cartItem = cartList[index];
+
+          cartListTbody.append(getCartItem(cartItem));
+
+          if (cartItem.soldOut === "Y") {
+            cartListTbody.find("input[name=qty]").val(0);
+            cartListTbody.find("input[name=qty]").attr("disabled", true);
+            cartListTbody.find("input[name=qty]").attr("value", 0);
+            cartListTbody
+              .find(".g_prc")
+              .html(
+                '<img src="../images/goods/img_soldout.png" width="50" height="50" class="out"  alt="품절"/>'
+              );
+            cartListTbody.find(".g_dvr").text("품절");
+            $(".modi").css("cursor", "default");
+            $(".plus").css("cursor", "default");
+            $(".minus").css("cursor", "default");
+          }
+        }
+        cartListTFoot.append(getTfoot(cartList));
+      };
+
+      const setPlus = function (currentTarget) {
+        const $parent = $(currentTarget).parent(); //jquery 객체인 경우 변수 앞에 $ 붙임
+        const $qtyElement = $parent.find("input[name=qty]"); //input 태그의 name 속성이 qty인 경우
+
+        let qty = Number($qtyElement.val()); // dom의 value 값을 가져옴
+
+        if (qty === 0) {
+          return false;
+        }
+
+        if (qty >= 30) {
+          alert("최대 수량입니다!");
+          qty = 30;
+        } else {
+          qty++;
+        }
+        $qtyElement.val(qty);
+      };
+
+      const setMinus = function (currentTarget) {
+        const $parent = $(currentTarget).parent(); //jquery 객체인 경우 변수 앞에 $ 붙임
+        const $qtyElement = $parent.find("input[name=qty]"); //input 태그의 name 속성이 qty인 경우
+
+        let qty = Number($qtyElement.val()); // dom의 value 값을 가져옴?
+
+        if (qty === 0) {
+          return false;
+        }
+
+        if (qty < 2) {
+          qty = 1;
+          alert("최소 수량입니다!");
+        } else {
+          qty--;
+        }
+        $qtyElement.val(qty);
+      };
+
+      //주문 상품 정보 저장 (객체 생성)
+      let OrderInfo = function (qty, amt, deliver_amt, goods_code, item_no) {
+        this.qty = qty;
+        this.amt = amt;
+        this.deliver_amt = deliver_amt;
+        this.goods_code = goods_code;
+        this.item_no = item_no;
+      };
+
+      //
+      $(document).ready(function () {
+        searchCartList(testData);
+
+        $("#cartList .plus").click((e) => {
+          setPlus(e.currentTarget);
+        });
+
+        $("#cartList .minus").click((e) => {
+          setMinus(e.currentTarget);
+        });
+
+        $("#cartList input[name=qty]").keyup((e) => {
+          const $qtyElement = $(e.currentTarget); //input 태그의 name 속성이 qty인 경우
+
+          let qty = Number($qtyElement.val()); // dom의 value 값을 가져옴
+
+          // 숫자만 입력
+          qty = $qtyElement.val().replace(/[^0-9]/g, "");
+
+          if (qty > 30) {
+            qty = 30;
+            alert("최대 수량입니다!");
+          }
+
+          if (qty < 1 && qty !== "") {
+            qty = 1;
+            alert("최소 수량입니다!");
+          }
+
+          if (isNaN(qty) || isEmpty(qty)) {
+            alert("숫자를 입력하세요!");
+            qty = 1;
+          }
+          $qtyElement.val(qty);
+        });
+
+        // 변경버튼 누르면 가격정보 변경
+        $("#cartList .modi").click((e) => {
+          const $qtyElement = $(e.currentTarget);
+          let qty = Number($qtyElement.parent().find("input[name=qty]").val());
+          let price = Number(
+            //charToNum($qtyElement.parent().parent().parent().find("p[class=pprc]").text())
+            $qtyElement.parent().find("input[name=amt]").val()
+          );
+          let tmpTotal = Number(qty * price);
+          $qtyElement.parent().find("input[name=qty]").attr("value", qty);
+          //$qtyElement.parent().find("input[name=amt]").attr("value", tmpTotal);
+
+          if (qty === 0) {
+            return false;
+          }
+
+          if (qty != 0) {
+            $qtyElement
+              .parent()
+              .parent()
+              .parent()
+              .children("td[class=g_prc]")
+              .text(toCurrency(tmpTotal) + "원");
+          }
+
+          let [totalPrice, totalDel] = initTotal();
+          initTfoot(totalPrice, totalDel);
+        });
+
+        // 전체 선택
+        let checkBoxes = [];
+        // 체크박스 값 넣기
+        $("input[name=choice_prd]").each((i) => {
+          if ($($(".g_dvr")[i]).text() === "품절") {
+            $($("input[name=choice_prd]")[i]).attr("disabled", true);
+          } else {
+            checkBoxes.push($("input[name=choice_prd]")[i]);
+          }
+        });
+
+        $("input[name=sel_all]").change((e) => {
+          const selAll = $(e.currentTarget).attr("id");
+          //전체선택 눌렀을 때 모두 클릭표시
+          if ($("#" + selAll).is(":checked")) {
+            $("input[name=choice_prd]:not(:disabled)").prop("checked", true);
+            if (selAll == "sel_all_1") {
+              $("#sel_all_2").prop("checked", true);
+            } else {
+              $("#sel_all_1").prop("checked", true);
+            }
+          } else {
+            $("input[name=choice_prd]").prop("checked", false);
+            if (selAll == "sel_all_1") {
+              $("#sel_all_2").prop("checked", false);
+            } else {
+              $("#sel_all_1").prop("checked", false);
+            }
+          }
+        });
+
+        // 모든 체크박스 다 눌렸을 때 전체선택도 같이 표시
+        $("input[name=choice_prd]").change((e) => {
+          let checked = $("input[name=choice_prd]:checked").length;
+
+          if (checkBoxes.length === checked) {
+            $("#sel_all_1").prop("checked", true);
+            $("#sel_all_2").prop("checked", true);
+          }
+          // 하나라도 체크박스 풀리면 전체선택 해제
+          if (checked < checkBoxes.length) {
+            $("#sel_all_1").prop("checked", false);
+            $("#sel_all_2").prop("checked", false);
+          }
+        });
+
+        //선택된 상품 삭제하기 (주문하기 밑 삭제하기 버튼) , 해당열 상품만
+        $("#cartList .del").click((e) => {
+          const selDel = $(e.currentTarget);
+
+          if (selDel) {
+            selDel.parent().parent().remove();
+          }
+          let [totalPrice, totalDel] = initTotal();
+          initTfoot(totalPrice, totalDel);
+        });
+
+        //주황색 주문하기 버튼 (해당열 상품만)
+        $("#cartList .ord").click((e) => {
+          const selOrd = $(e.currentTarget);
+          let printTotal = 0;
+
+          let soldOut = selOrd
+            .parent()
+            .parent()
+            .parent()
+            .find("input[name=soldOut]")
+            .val();
+
+          if (selOrd && soldOut === "N") {
+            let qty = selOrd
+              .parent()
+              .parent()
+              .parent()
+              .find("input[name=qty]")
+              .val();
+
+            let amt = selOrd
+              .parent()
+              .parent()
+              .parent()
+              .find("input[name=amt]")
+              .val(); //가격
+            let deliver_amt = selOrd
+              .parent()
+              .parent()
+              .parent()
+              .find("input[name=deliver_amt]")
+              .val();
+            let goods_code = selOrd
+              .parent()
+              .parent()
+              .parent()
+              .find("input[name=goods_code]")
+              .val();
+            let item_no = selOrd
+              .parent()
+              .parent()
+              .parent()
+              .find("input[name=item_no]")
+              .val();
+
+            let orderInfo = new OrderInfo(
+              qty,
+              amt,
+              deliver_amt,
+              goods_code,
+              item_no
+            );
+            printTotal += Number(qty) * Number(amt) + Number(deliver_amt);
+            console.log(orderInfo);
+          }
+
+          //품절상태인건 따로 처리
+          if (soldOut === "Y") {
+            alert("해당 상품은 품절입니다.");
+          }
+          console.log("총 결제 금액: ", toCurrency(printTotal), "원");
+        });
+
+        // 선택상품을 삭제 (선택된 상품 모두 삭제)
+        $("#btn_ord_del").click((e) => {
+          let checkedBoxes = [];
+          // 체크박스 값 넣기
+          $("input[name=choice_prd]:checked").each((i) => {
+            checkedBoxes.push($("input[name=choice_prd]:checked")[i]);
+          });
+
+          let checked = checkedBoxes.length;
+          for (let i = 0; i < checked; i++) {
+            checkedBoxes[i].parentNode.parentNode.remove();
+          }
+
+          //품절상태인건 따로 삭제
+          if ($($(".g_dvr")).text() === "품절") {
+            $("input[name=choice_prd]").parent().parent().remove();
+          }
+          let [totalPrice, totalDel] = initTotal();
+          initTfoot(totalPrice, totalDel);
+        });
+
+        // 하단 주문하기 함수
+        const btnOrd = (boxes) => {
+          let len = boxes.length;
+          let printTotal = 0;
+
+          $(boxes).each((i) => {
+            let qty = $(boxes[i])
+              .parent()
+              .parent()
+              .find("input[name=qty]")
+              .val();
+            let amt = $(boxes[i])
+              .parent()
+              .parent()
+              .find("input[name=amt]")
+              .val(); //가격
+            let deliver_amt = $(boxes[i])
+              .parent()
+              .parent()
+              .find("input[name=deliver_amt]")
+              .val();
+            let goods_code = $(boxes[i])
+              .parent()
+              .parent()
+              .find("input[name=goods_code]")
+              .val();
+            let item_no = $(boxes[i])
+              .parent()
+              .parent()
+              .find("input[name=item_no]")
+              .val();
+
+            let orderInfo = new OrderInfo(
+              qty,
+              amt,
+              deliver_amt,
+              goods_code,
+              item_no
+            );
+            printTotal += Number(qty) * Number(amt) + Number(deliver_amt);
+            console.log(orderInfo);
+          });
+          console.log("총 결제 금액: ", toCurrency(printTotal), "원");
+        };
+
+        // 하단 주문하기 버튼 클릭 시 선택된 상품 정보 출력
+        $("#btn_ord").click((e) => {
+          let checkedBoxes = [];
+          // 체크박스 값 넣기
+          $("input[name=choice_prd]:checked").each((i) => {
+            checkedBoxes.push($("input[name=choice_prd]:checked")[i]);
+          });
+          btnOrd(checkedBoxes);
+        });
+
+        //전체주문하기;
+        $("#btn_ord_all").click((e) => {
+          let goodsBoxes = [];
+          // 체크박스 값 넣기
+          $("input[name=choice_prd]").each((i) => {
+            if (
+              $($("input[name=choice_prd]")[i])
+                .parent()
+                .parent()
+                .find("input[name=soldOut]")
+                .val() === "N"
+            )
+              goodsBoxes.push($("input[name=choice_prd]")[i]);
+          });
+          btnOrd(goodsBoxes);
+        });
+      });
+
+      //]]>
+    </script>
+  </head>
+  <body>
+    <!-- ACCESSIBILITY -->
+    <div id="accessibility">
+      <dl>
+        <dt><strong>바로가기 메뉴</strong></dt>
+        <dd><a href="#header" rel="goMenu">메뉴 바로가기</a></dd>
+        <dd><a href="#container" rel="goContent">본문 바로가기</a></dd>
+      </dl>
+    </div>
+    <!-- //ACCESSIBILITY -->
+
+    <!-- HEADER -->
+    <div class="header">
+      <div class="head">
+        <div class="tnb">
+          <div class="tnb_left">
+            <ul>
+              <li id="test">
+                <a href="#"
+                  ><img
+                    src="../images/common/btn_tnb_vip.gif"
+                    width="82"
+                    height="31"
+                    alt="VIP 선물"
+                /></a>
+              </li>
+              <li>
+                <a href="#"
+                  ><img
+                    src="../images/common/btn_tnb_mp.gif"
+                    width="83"
+                    height="31"
+                    alt="명품관"
+                /></a>
+              </li>
+              <li>
+                <a href="#"
+                  ><img
+                    src="../images/common/btn_tnb_top.gif"
+                    width="82"
+                    height="31"
+                    alt="TOP 랭킹"
+                /></a>
+              </li>
+            </ul>
+          </div>
+          <div class="tnb_right">
+            <ul>
+              <li class="fav"><a href="#">즐겨찾기</a></li>
+              <li class="log">
+                <a href="#"
+                  ><img
+                    src="../images/common/btn_login.gif"
+                    width="41"
+                    height="17"
+                    alt="로그인"
+                /></a>
+              </li>
+              <li><a href="#">회원가입</a></li>
+              <li><a href="#">주문/배송조회</a></li>
+              <li><a href="#">고객센터</a></li>
+              <li class="myp"><a href="#">마이페이지</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="head_menu">
+          <h1>
+            <a href="#"
+              ><img
+                src="../images/common/h1_logo.gif"
+                width="185"
+                height="103"
+                alt="welstorymall"
+            /></a>
+          </h1>
+          <div class="menu_plan">
+            <ul>
+              <li>
+                <a href="#"
+                  ><img
+                    src="../images/common/menu_plan_01.gif"
+                    width="61"
+                    height="25"
+                    alt="명품주방"
+                /></a>
+              </li>
+              <li>
+                <a href="#"
+                  ><img
+                    src="../images/common/menu_plan_02.gif"
+                    width="61"
+                    height="25"
+                    alt="원어위크"
+                /></a>
+              </li>
+              <li>
+                <a href="#"
+                  ><img
+                    src="../images/common/menu_plan_03.gif"
+                    width="73"
+                    height="25"
+                    alt="런치스페셜"
+                /></a>
+              </li>
+              <li>
+                <a href="#"
+                  ><img
+                    src="../images/common/menu_plan_04.gif"
+                    width="86"
+                    height="25"
+                    alt="다녀왔습니다"
+                /></a>
+              </li>
+              <li>
+                <a href="#"
+                  ><img
+                    src="../images/common/menu_plan_05.gif"
+                    width="75"
+                    height="25"
+                    alt="쇼핑기획전"
+                /></a>
+              </li>
+            </ul>
+          </div>
+          <div class="menu_evt">
+            <div class="bn_list">
+              <ul>
+                <li>
+                  <a href="#"
+                    ><img
+                      src="../images/common/bn_evt.gif"
+                      width="213"
+                      height="103"
+                      alt="SPECIAL EVENT"
+                  /></a>
+                </li>
+                <li>
+                  <a href="#"
+                    ><img
+                      src="../images/common/bn_evt.gif"
+                      width="213"
+                      height="103"
+                      alt="SPECIAL EVENT"
+                  /></a>
+                </li>
+                <li>
+                  <a href="#"
+                    ><img
+                      src="../images/common/bn_evt.gif"
+                      width="213"
+                      height="103"
+                      alt="SPECIAL EVENT"
+                  /></a>
+                </li>
+                <li>
+                  <a href="#"
+                    ><img
+                      src="../images/common/bn_evt.gif"
+                      width="213"
+                      height="103"
+                      alt="SPECIAL EVENT"
+                  /></a>
+                </li>
+              </ul>
+            </div>
+            <button type="button" class="bn_prev">
+              <img
+                src="../images/main/btn_bnl_prev.gif"
+                width="19"
+                height="16"
+                alt="이전이벤트"
+              />
+            </button>
+            <button type="button" class="bn_next">
+              <img
+                src="../images/main/btn_bnl_next.gif"
+                width="18"
+                height="16"
+                alt="다음이벤트"
+              />
+            </button>
+          </div>
+        </div>
+        <div class="head_sch">
+          <div class="catg_btn">
+            <a
+              href="#"
+              onclick="fnToggle('catg_all', 'catg_bt');return false;"
+              onkeypress="this.onclick;"
+              id="catg_bt"
+              class="off"
+              >카테고리 전체보기</a
+            >
+          </div>
+          <!-- CATG ALL -->
+          <div class="catg_all_wrap" id="catg_all"></div>
+          <!-- //CATG ALL -->
+          <div class="sch">
+            <label for="sch">검색</label>
+            <input type="text" class="input" name="sch" id="sch" />
+            <a href="#" class="btn">검색하기</a>
+          </div>
+          <div class="stat">
+            <ul>
+              <li class="log">
+                <span class="tt"><strong>박진철</strong>님</span
+                ><em>삼성에버랜드</em>
+              </li>
+              <li class="dlv">
+                <span class="tt">주문/배송</span><em><strong>25</strong>건</em>
+              </li>
+              <li class="cpn">
+                <span class="tt">쿠폰</span><strong>123</strong>장
+              </li>
+              <li class="wel">
+                <span class="tt">웰포인트</span><strong>45,323,200</strong>점
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- //HEADER -->
+
+    <!-- CONTAINER -->
+    <div id="container" class="container">
+      <div class="content">
+        <div class="catg_nav">
+          <a href="#" class="home">홈</a>&gt;
+          <span class="now">장바구니</span>
+        </div>
+
+        <!-- ORDER STEP -->
+        <div class="ord_step">
+          <!-- 2013-05-28_수정 -->
+          <!-- STEP 01. 장바구니 -->
+          <h2>
+            <img
+              src="../images/order/h2_cart.gif"
+              width="580"
+              height="88"
+              alt="장바구니"
+            />
+          </h2>
+          <div class="step">
+            <img
+              src="../images/order/txt_ord_step_01.jpg"
+              alt="현재 페이지 STEP 01. 장바구니 &lt; STEP 02. 주문서 작성 &lt; STEP 03. 주문완료"
+            />
+          </div>
+
+          <!-- STEP 02. 주문서 작성 -->
+          <!-- <h2><img src="../images/order/h2_order.gif" width="580" height="88" alt="주문서 작성"/></h2>
+			<div class="step">
+				<img src="../images/order/txt_ord_step_02.jpg" alt="STEP 01. 장바구니 &lt; 현재 페이지 STEP 02. 주문서 작성 &lt; STEP 03. 주문완료" />
+			</div> -->
+
+          <!-- STEP 03. 주문완료 -->
+          <!-- <h2><img src="../images/order/h2_order_cfm.gif" width="580" height="88" alt="주문완료"/></h2>
+			<div class="step">
+				<img src="../images/order/txt_ord_step_02.jpg" alt="STEP 01. 장바구니 &lt; STEP 02. 주문서 작성 &lt; 현재 페이지 STEP 03. 주문완료" />
+			</div> -->
+          <!-- //2013-05-28_수정 -->
+        </div>
+        <!-- //ORDER STEP -->
+
+        <!-- ORDER TAB -->
+        <div class="ord_tab">
+          <ul>
+            <li>
+              <a
+                href="#"
+                onclick="fnTabImg(4, 'tab_ord', 0, 'cont_ord');return false;"
+                onkeypress="this.onclick;"
+                ><img
+                  src="../images/order/tab_ord_01_on.gif"
+                  width="154"
+                  height="37"
+                  id="tab_ord0"
+                  alt="장바구니"
+              /></a>
+            </li>
+            <li>
+              <a
+                href="#"
+                onclick="fnTabImg(4, 'tab_ord', 1, 'cont_ord');return false;"
+                onkeypress="this.onclick;"
+                ><img
+                  src="../images/order/tab_ord_02_off.gif"
+                  width="154"
+                  height="37"
+                  id="tab_ord1"
+                  alt="위시리스트"
+              /></a>
+            </li>
+            <li>
+              <a
+                href="#"
+                onclick="fnTabImg(4, 'tab_ord', 2, 'cont_ord');return false;"
+                onkeypress="this.onclick;"
+                ><img
+                  src="../images/order/tab_ord_03_off.gif"
+                  width="154"
+                  height="37"
+                  id="tab_ord2"
+                  alt="자주찾는상품"
+              /></a>
+            </li>
+            <li>
+              <a
+                href="#"
+                onclick="fnTabImg(4, 'tab_ord', 3, 'cont_ord');return false;"
+                onkeypress="this.onclick;"
+                ><img
+                  src="../images/order/tab_ord_04_off.gif"
+                  width="155"
+                  height="37"
+                  id="tab_ord3"
+                  alt="단독구매바구니"
+              /></a>
+            </li>
+          </ul>
+          <a href="#" class="basket"
+            ><img
+              src="../images/order/btn_basket.gif"
+              width="128"
+              height="27"
+              alt="정리바구니"
+          /></a>
+        </div>
+        <!-- //ORDER TAB -->
+
+        <!-- TAB1.20140129 숙제!!!!!!!!!!!!!! 이부분부터  조작 하면 됩니다. -->
+        <div id="cont_ord0">
+          <!-- CART -->
+          <div class="ord_list">
+            <table
+              summary="장바구니 목록"
+              cellpadding="0"
+              class="tbl"
+              id="tbl_cart_list"
+            >
+              <caption>
+                장바구니 목록
+              </caption>
+              <colgroup>
+                <col style="width: 105px" />
+                <col style="width: 536px" />
+                <col style="width: 100px" />
+                <col style="width: 80px" />
+                <col style="width: 100px" />
+                <col style="width: 80px" />
+                <col style="width: 89px" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th scope="col" class="chk">
+                    <input
+                      type="checkbox"
+                      class="checkbox"
+                      name="sel_all"
+                      id="sel_all_1"
+                    />
+                    <label for="cart_all">전체선택</label>
+                  </th>
+                  <th scope="col">상품명/선택사항</th>
+                  <th scope="col">혜택</th>
+                  <th scope="col">수량</th>
+                  <th scope="col">주문금액</th>
+                  <th scope="col">배송비</th>
+                  <th scope="col" class="end">주문</th>
+                </tr>
+              </thead>
+              <tbody id="cartList"></tbody>
+              <tfoot id="cartListInfo"></tfoot>
+            </table>
+
+            <!-- SELECT BUTTON -->
+            <div class="c_sel">
+              <input
+                type="checkbox"
+                name="sel_all"
+                class="checkbox"
+                id="sel_all_2"
+              />
+              <label for="sel_all">전체선택</label>
+              <div class="btns">
+                <a href="javascript:;"
+                  ><img
+                    src="../images/order/btn_ord_del.gif"
+                    id="btn_ord_del"
+                    width="86"
+                    height="32"
+                    alt="선택상품을 삭제"
+                /></a>
+                <a href="#"
+                  ><img
+                    src="../images/order/btn_ord_wish.gif"
+                    width="103"
+                    height="32"
+                    alt="위시리스트 담기"
+                /></a>
+                <a href="#"
+                  ><img
+                    src="../images/order/btn_ord.gif"
+                    id="btn_ord"
+                    width="103"
+                    height="32"
+                    alt="주문하기"
+                /></a>
+                <a href="#"
+                  ><img
+                    src="../images/order/btn_ord_all.gif"
+                    id="btn_ord_all"
+                    width="103"
+                    height="32"
+                    alt="전체 주문하기"
+                /></a>
+              </div>
+            </div>
+            <!-- //SELECT BUTTON -->
+          </div>
+          <!-- //CART -->
+
+          <!-- INFO. -->
+          <div class="ord_info">
+            <h3>장바구니<em>이용안내</em></h3>
+            <ul>
+              <li>
+                <strong
+                  >고객님! <em>장바구니상품은 30일간 보관됩니다.</em> 상품을
+                  장기간 보관하시려면 <em>위시리스트</em>를
+                  클릭해주세요.</strong
+                >
+              </li>
+              <li>
+                장바구니에 담긴 상품은 자동 저장 되며, 담으신 상품은 옵션 및
+                수량의 변경, 삭제가 가능합니다.
+              </li>
+              <li>
+                장바구니의 총 예상 결제금액은 쿠폰, 및 기타 할인, 배송정보가
+                확정되지 않은 예정 가격으로 실제 최종 결제금액과 차이가 있을 수
+                있습니다.
+              </li>
+            </ul>
+          </div>
+          <!-- //INFO. -->
+        </div>
+        <!-- TAB1.20140129 숙제!!!!!!!!!!!!!! 여기까지! 조작 하면 됩니다. -->
+      </div>
+      <!-- //CONTENT -->
+    </div>
+    <!-- //CONTAINER -->
+
+    <!-- FOOTER -->
+    <div id="footer" class="footer">
+      <div class="foot">
+        <div class="fnb">
+          <ul>
+            <li>
+              <a href="#"
+                ><img
+                  src="../images/common/fnb_01.gif"
+                  width="130"
+                  height="21"
+                  alt="FoodCulture 사업부"
+              /></a>
+            </li>
+            <li>
+              <a href="#"
+                ><img
+                  src="../images/common/fnb_02.gif"
+                  width="58"
+                  height="21"
+                  alt="대량구매"
+              /></a>
+            </li>
+            <li>
+              <a href="#"
+                ><img
+                  src="../images/common/fnb_03.gif"
+                  width="60"
+                  height="21"
+                  alt="이용약관"
+              /></a>
+            </li>
+            <li>
+              <a href="#"
+                ><img
+                  src="../images/common/fnb_04.gif"
+                  width="126"
+                  height="21"
+                  alt="개인정보취급(처리)방침"
+              /></a>
+            </li>
+            <li>
+              <a href="#"
+                ><img
+                  src="../images/common/fnb_05.gif"
+                  width="112"
+                  height="21"
+                  alt="무단이메일수집 거부"
+              /></a>
+            </li>
+          </ul>
+        </div>
+        <div class="copyright">
+          <p class="logo">
+            <a href="#"
+              ><img
+                src="../images/common/foot_logo.gif"
+                width="110"
+                height="50"
+                alt="삼성에버랜드 기업대표사이트 바로가기"
+            /></a>
+          </p>
+          <p class="addr">
+            <img
+              src="../images/common/img_address.gif"
+              width="600"
+              height="35"
+              alt="대표이사 김봉영   개인정보관리 책임자 : 이명석   사업자등록번호 : 215-85-09371 통신판매업신고 제 131호 건강기능식품판매업체 제1호 경기도 용인시 기흥구 마북동 553-3   팩스 031-288-0855    문의전화 : 080-288-5252"
+            />
+          </p>
+          <p class="copy">
+            <img
+              src="../images/common/img_copyright.gif"
+              width="423"
+              height="13"
+              alt="COTYRIGHT(c) 2000~2012, SAMSUNG EVERLAND INC.ALL RIGHTS RESERVE"
+            />
+          </p>
+        </div>
+      </div>
+    </div>
+    <!-- //FOOTER -->
+  </body>
+</html>
